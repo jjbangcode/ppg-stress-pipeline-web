@@ -6,6 +6,7 @@ const modal = document.getElementById("image-modal");
 const modalImg = document.getElementById("modal-img");
 const captionText = document.getElementById("caption");
 const span = document.getElementsByClassName("close")[0];
+const modalDownload = document.getElementById("modal-download");
 
 // Lightbox modal close listeners
 if (span) {
@@ -20,10 +21,197 @@ if (modal) {
 }
 
 function openLightbox(src, caption) {
+    if (!src) return;
     modal.style.display = "block";
     modalImg.src = src;
     captionText.innerHTML = caption || "";
+    if (modalDownload) {
+        modalDownload.href = src;
+        modalDownload.download = makeGraphDownloadName(src, caption);
+    }
 }
+
+function makeGraphDownloadName(src, label) {
+    const fallback = (label || "ppg-graph").replace(/<[^>]*>/g, "").trim();
+    const safeLabel = fallback
+        .replace(/[^a-zA-Z0-9가-힣._-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 80);
+    try {
+        const url = new URL(src, window.location.href);
+        const fileName = url.pathname.split("/").filter(Boolean).pop();
+        return fileName || `${safeLabel || "ppg-graph"}.png`;
+    } catch (e) {
+        return `${safeLabel || "ppg-graph"}.png`;
+    }
+}
+
+function getGraphTitle(img) {
+    const box = img.closest(".image-box");
+    const heading = box ? box.querySelector("h4") : null;
+    return (heading && heading.textContent.trim()) || img.alt || "PPG graph";
+}
+
+function getGraphInsight(img) {
+    const key = `${img.id || ""} ${img.alt || ""}`.toLowerCase();
+    if (key.includes("dist") || key.includes("distribution")) {
+        return {
+            title: "해석 포인트",
+            points: [
+                "조건별 데이터 시간이 충분한지 확인합니다.",
+                "Stress와 Non-stress의 비율이 너무 치우치면 분류 성능 해석에 주의가 필요합니다.",
+                "피험자 간 분포가 비슷할수록 LOSO 검증의 비교가 안정적입니다."
+            ]
+        };
+    }
+    if (key.includes("alignment") || key.includes("stacked")) {
+        return {
+            title: "정렬 검증 포인트",
+            points: [
+                "BVP 신호와 라벨 전환 시점이 같은 시간축에서 맞는지 봅니다.",
+                "특정 피험자의 상태 시간이 튀면 원본 파일 또는 라벨 정렬 문제를 의심합니다.",
+                "초기 품질 검증이 통과해야 이후 세그먼트와 임베딩 결과를 믿을 수 있습니다."
+            ]
+        };
+    }
+    if (key.includes("raw") || key.includes("waveform")) {
+        return {
+            title: "신호 품질 포인트",
+            points: [
+                "원시 BVP 파형의 급격한 포화, 긴 평평한 구간, 큰 기저선 흔들림을 확인합니다.",
+                "파형 주기가 일정하게 보이면 필터링과 피크 검출의 출발점이 좋습니다.",
+                "피험자별 노이즈 차이는 이후 성능 편차의 원인이 될 수 있습니다."
+            ]
+        };
+    }
+    if (key.includes("psd") || key.includes("freq")) {
+        return {
+            title: "주파수 해석 포인트",
+            points: [
+                "주요 에너지가 생리적으로 가능한 심박 대역에 모이는지 확인합니다.",
+                "필터 적용 후 불필요한 저주파 드리프트와 고주파 노이즈가 줄어야 합니다.",
+                "대역 밖 피크가 크면 움직임이나 센서 잡음 가능성이 있습니다."
+            ]
+        };
+    }
+    if (key.includes("peak")) {
+        return {
+            title: "피크 검출 포인트",
+            points: [
+                "붉은 피크 마커가 실제 수축기 최고점에 안정적으로 붙는지 봅니다.",
+                "누락된 피크나 과검출 피크는 IBI/HRV 특징을 크게 흔듭니다.",
+                "움직임이 큰 구간에서는 피크 검출 신뢰도가 낮아질 수 있습니다."
+            ]
+        };
+    }
+    if (key.includes("z-score") || key.includes("zscore")) {
+        return {
+            title: "정규화 해석 포인트",
+            points: [
+                "개인별 진폭 차이를 줄여 모델이 파형 형태에 더 집중하게 합니다.",
+                "정규화 후 극단값이 과하게 남으면 품질 필터를 추가로 검토합니다.",
+                "세그먼트 단위 표준화는 피험자 독립 검증에서 특히 중요합니다."
+            ]
+        };
+    }
+    if (key.includes("classification") || key.includes("plot") || key.includes("loso")) {
+        return {
+            title: "성능 해석 포인트",
+            points: [
+                "AUROC는 스트레스 판별력, F1은 클래스 균형 성능, Accuracy는 전체 정답률입니다.",
+                "특정 피험자 점수가 낮으면 개인별 생리 반응 또는 센서 품질 차이를 확인합니다.",
+                "LOSO 평균선은 새 피험자에 대한 일반화 가능성을 보는 핵심 기준입니다."
+            ]
+        };
+    }
+    return {
+        title: "그래프 해석 포인트",
+        points: [
+            "축 이름과 단위를 먼저 확인한 뒤 전체 패턴과 이상치를 봅니다.",
+            "전후 단계 그래프를 비교하면 전처리가 신호에 미친 영향을 알 수 있습니다.",
+            "특정 단계에서 패턴이 급격히 변하면 해당 파라미터를 다시 점검합니다."
+        ]
+    };
+}
+
+function downloadGraphImage(img) {
+    const src = img.currentSrc || img.src;
+    if (!src) return;
+    const link = document.createElement("a");
+    link.href = src;
+    link.download = makeGraphDownloadName(src, getGraphTitle(img));
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+function enhanceGraphTools(root = document) {
+    const boxes = root.querySelectorAll ? root.querySelectorAll(".image-box") : [];
+    boxes.forEach((box) => {
+        const img = box.querySelector("img.zoomable");
+        if (!img) return;
+
+        if (!box.querySelector(".graph-tool-header")) {
+            const heading = box.querySelector("h4");
+            const header = document.createElement("div");
+            header.className = "graph-tool-header";
+            if (heading) {
+                heading.parentNode.insertBefore(header, heading);
+                header.appendChild(heading);
+            } else {
+                const title = document.createElement("h4");
+                title.textContent = img.alt || "Graph";
+                box.insertBefore(header, img);
+                header.appendChild(title);
+            }
+
+            const actions = document.createElement("div");
+            actions.className = "graph-actions";
+            actions.innerHTML = `
+                <button type="button" class="graph-action-btn" data-graph-action="zoom" title="그래프 확대"><i class="fa-solid fa-magnifying-glass-plus"></i><span>확대</span></button>
+                <button type="button" class="graph-action-btn" data-graph-action="download" title="PNG 다운로드"><i class="fa-solid fa-download"></i><span>다운로드</span></button>
+            `;
+            header.appendChild(actions);
+        }
+
+        if (!box.querySelector(".graph-quick-read")) {
+            const insight = getGraphInsight(img);
+            const quick = document.createElement("div");
+            quick.className = "graph-quick-read";
+            quick.innerHTML = `
+                <div class="graph-quick-read-title"><i class="fa-solid fa-list-check"></i> ${insight.title}</div>
+                <ul>${insight.points.map(point => `<li>${point}</li>`).join("")}</ul>
+            `;
+            const guide = box.querySelector(".graph-guide");
+            if (guide) {
+                guide.parentNode.insertBefore(quick, guide);
+            } else {
+                box.appendChild(quick);
+            }
+        }
+    });
+}
+
+document.addEventListener("click", (e) => {
+    const actionBtn = e.target.closest("[data-graph-action]");
+    if (actionBtn) {
+        const box = actionBtn.closest(".image-box");
+        const img = box ? box.querySelector("img.zoomable") : null;
+        if (!img || !(img.currentSrc || img.src)) return;
+        if (actionBtn.dataset.graphAction === "zoom") {
+            openLightbox(img.currentSrc || img.src, getGraphTitle(img));
+        } else if (actionBtn.dataset.graphAction === "download") {
+            downloadGraphImage(img);
+        }
+        return;
+    }
+
+    const img = e.target.closest("img.zoomable");
+    if (img && (img.currentSrc || img.src)) {
+        openLightbox(img.currentSrc || img.src, getGraphTitle(img));
+    }
+});
 
 // Navigation between steps
 function setActiveStep(step) {
@@ -947,6 +1135,14 @@ async function runBatchProcessing(e) {
 document.addEventListener("DOMContentLoaded", () => {
     // Initial load
     checkStatus();
+    enhanceGraphTools();
+    const graphToolObserver = new MutationObserver(() => enhanceGraphTools());
+    graphToolObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["src"]
+    });
 
     // Step indicators and mini progress boxes click triggers navigation
     document.querySelectorAll("[data-step-target]").forEach(element => {

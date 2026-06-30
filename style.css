@@ -536,6 +536,51 @@ body {
     flex-direction: column;
 }
 
+.graph-tool-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.graph-tool-header h4 {
+    margin-bottom: 0 !important;
+}
+
+.graph-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.graph-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid rgba(139, 92, 246, 0.28);
+    background: rgba(139, 92, 246, 0.09);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 0.34rem 0.55rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+}
+
+.graph-action-btn i {
+    color: var(--primary-light);
+}
+
+.graph-action-btn:hover {
+    background: rgba(139, 92, 246, 0.18);
+    color: white;
+    transform: translateY(-1px);
+}
+
 .image-box.full-width {
     margin-top: 1.5rem;
 }
@@ -591,6 +636,29 @@ body {
     max-height: 85vh;
     border-radius: 8px;
     box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+}
+
+.modal-download-btn {
+    position: absolute;
+    top: 28px;
+    right: 88px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    border-radius: 8px;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.modal-download-btn:hover {
+    background: rgba(139, 92, 246, 0.28);
+    border-color: rgba(139, 92, 246, 0.45);
 }
 
 #caption {
@@ -773,6 +841,37 @@ body {
     line-height: 1.6;
     color: var(--text-secondary);
     text-align: left;
+}
+
+.graph-quick-read {
+    margin-top: 0.9rem;
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(16, 185, 129, 0.14);
+    background: rgba(16, 185, 129, 0.045);
+    color: var(--text-secondary);
+    text-align: left;
+}
+
+.graph-quick-read-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.45rem;
+    color: var(--success);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.graph-quick-read ul {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+.graph-quick-read li {
+    margin: 0.22rem 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 .graph-guide .guide-axis {
@@ -1345,6 +1444,26 @@ body {
 }
 
 @media (max-width: 720px) {
+    .graph-tool-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .graph-actions {
+        width: 100%;
+    }
+
+    .graph-action-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .modal-download-btn {
+        top: 24px;
+        right: 78px;
+        padding: 0.42rem 0.55rem;
+    }
+
     .artifact-map-header {
         align-items: flex-start;
         flex-direction: column;
@@ -1354,5 +1473,4 @@ body {
         font-size: 0.7rem;
     }
 }
-
 
