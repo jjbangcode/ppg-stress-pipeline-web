@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPG Stress Classification Interactive Pipeline</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header animate-fade-in">
+            <div class="header-logo">
+                <div class="logo-icon"><i class="fa-solid fa-heart-pulse"></i></div>
+                <div class="logo-text">
+                    <h1>PPG 대화형 분석 파이프라인</h1>
+                    <p class="subtitle">Drag & Drop PPG Stress Analysis System</p>
+                </div>
+            </div>
+            <div class="system-badge">
+                <button id="btn-clear-all" class="danger-btn"><i class="fa-solid fa-trash-can"></i> 데이터 초기화</button>
+            </div>
+        </header>
+
+        <!-- WESAD DATA CONFIGURATION & BATCH RUN -->
+        <section class="path-config-card glass-panel animate-fade-in">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; margin: 0;"><i class="fa-solid fa-folder-open" style="color: var(--primary-light);"></i> WESAD 데이터 경로 설정</h2>
+                <div id="path-status-badge" class="step-status idle">
+                    <span class="badge badge-idle">미연결</span>
+                </div>
+            </div>
+            <p class="step-desc" style="margin-bottom: 1.2rem; font-size: 0.95rem;">로컬 컴퓨터에 있는 WESAD 데이터셋 상위 폴더 경로를 연결하면 폴더 안의 모든 피험자 파일을 고속으로 일괄 처리합니다.</p>
+            <div class="input-group" style="display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.8rem;">
+                <input type="text" id="wesad-path-input" placeholder="예: /Users/su-younlee/Dropbox/PPG/1_PPG data analysis/WESAD" value="/Users/su-younlee/Dropbox/PPG/1_PPG data analysis/WESAD" style="flex-grow: 1; min-width: 280px; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.7rem 1rem; color: white; font-family: var(--font-sans); font-size: 0.95rem; outline: none; transition: var(--transition);">
+            </div>
+            <div id="path-message" class="status-message" style="margin-top: 0.2rem; font-size: 0.9rem; font-weight: 500; margin-bottom: 0.8rem;"></div>
+
+            <!-- Batch Run Button (Always Visible) -->
+            <div style="margin-top: 0.8rem;">
+                <button id="btn-run-batch" class="primary-btn batch-btn" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 0.9rem 2rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: #0a0b15; font-weight: 700; border: none; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);"><i class="fa-solid fa-wand-magic-sparkles"></i> 전체 피험자 일괄 전처리 실행 (Run All Subjects)</button>
+            </div>
+        </section>
+
+        <!-- PIPELINE SELECTOR -->
+        <section class="pipeline-progress-card glass-panel animate-fade-in">
+            <h3><i class="fa-solid fa-bars-progress"></i> 분석 단계 선택</h3>
+            <div class="progress-steps">
+                <div class="step-indicator" id="ind-step1" data-step-target="1">
+                    <div class="step-circle">1</div>
+                    <span class="step-label">데이터 구조 확인</span>
+                </div>
+                <div class="step-line" id="line-1-2"></div>
+                <div class="step-indicator active" id="ind-step2" data-step-target="2">
+                    <div class="step-circle">2</div>
+                    <span class="step-label">전처리 파이프라인 설계</span>
+                </div>
+                <div class="step-line" id="line-2-3"></div>
+                <div class="step-indicator" id="ind-step3" data-step-target="3">
+                    <div class="step-circle">3</div>
+                    <span class="step-label">신호 전처리 실행</span>
+                </div>
+                <div class="step-line" id="line-3-4"></div>
+                <div class="step-indicator" id="ind-step4" data-step-target="4">
+                    <div class="step-circle">4</div>
+                    <span class="step-label">임베딩 추출</span>
+                </div>
+                <div class="step-line" id="line-4-5"></div>
+                <div class="step-indicator" id="ind-step5" data-step-target="5">
+                    <div class="step-circle">5</div>
+                    <span class="step-label">분류 & 검증</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- PIPELINE CARDS -->
+        <div class="steps-container">
+            
+            <!-- STEP 1: DATA CHECK -->
+            <section class="step-card glass-panel" id="card-step1">
+                <div class="step-card-header">
+                    <div class="step-number">Step 01</div>
+                    <h3 class="step-title">WESAD 데이터셋 구조 검증</h3>
+                    <div class="step-status" id="status-step1"><span class="badge badge-idle">대기 중</span></div>
+                </div>
+                <p class="step-desc">WESAD 데이터셋 내 피험자들의 BVP 신호(64Hz) 길이 및 실험 조건(Baseline, Stress, Amusement, Transition) 시간 분포를 일괄 검증합니다.</p>
+
+                <div class="outputs-container" style="display: none;" id="outputs-1">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-tab="report-1"><i class="fa-solid fa-chart-simple"></i> 분석 보고서</button>
+                        <button class="tab-btn" data-tab="logs-1"><i class="fa-solid fa-terminal"></i> 실행 로그</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="report-1">
+                        <div class="report-split">
+                            <div class="stats-table-wrapper">
+                                <h4>피험자 데이터 요약</h4>
+                                <table class="stats-table" id="table-s1">
+                                    <tbody>
+                                        <tr><th>파일명</th><td id="td-s1-filename">-</td></tr>
+                                        <tr><th>피험자 ID</th><td id="td-s1-subid">-</td></tr>
+                                        <tr><th>BVP 샘플 수</th><td id="td-s1-samples">-</td></tr>
+                                        <tr><th>총 시간</th><td id="td-s1-duration">-</td></tr>
+                                        <tr><th>기저(Baseline) 시간</th><td id="td-s1-base">-</td></tr>
+                                        <tr><th>스트레스(Stress) 시간</th><td id="td-s1-stress">-</td></tr>
+                                        <tr><th>즐거움(Amusement) 시간</th><td id="td-s1-amuse">-</td></tr>
+                                        <tr><th>전환(Transition) 시간</th><td id="td-s1-trans">-</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="report-images">
+                                <div class="image-box">
+                                    <h4 id="h4-s1-dist">실험 상태별 시간 분포 (분)</h4>
+                                    <img src="" alt="Distribution Graph" id="img-s1-dist" class="zoomable">
+                                    <div class="graph-guide">
+                                        <div class="guide-axis"><span>X축</span>: 누적 시간 (분) / <span>Y축</span>: 실험 상태 조건 (Baseline, Stress 등)</div>
+                                        <div class="guide-interpretation">전체 데이터셋 내에서 머신러닝 학습 및 테스트에 필요한 각 실험 상태별 데이터가 고르게 확보되었는지 시각화합니다. 특히 기저(Baseline)와 스트레스(Stress)의 비율이 불균형하지 않은지 점검하는 척도가 됩니다.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="image-box full-width" style="margin-bottom: 1.5rem;">
+                            <h4 id="h4-s1-stacked">피험자별 실험 상태 시간 분포 비교 (Stacked)</h4>
+                            <img src="" alt="Stacked Alignment Graph" id="img-s1-stacked" class="zoomable">
+                            <div class="graph-guide">
+                                <div class="guide-axis"><span>X축</span>: 피험자 ID (Subject ID) / <span>Y축</span>: 실험 세션별 소요 시간 (분)</div>
+                                <div class="guide-interpretation">모든 피험자의 데이터셋 구성 요소와 실험 시간 흐름이 규격대로 정렬되어 있는지 비교합니다. 각 피험자마다 네 가지 실험 조건(Transition, Baseline, Stress, Amusement)의 비율이 일관성 있게 구성되어 있는지 한눈에 점검하며, 특정 피험자의 라벨 불일치나 누락 오류를 골라낼 수 있습니다.</div>
+                            </div>
+                        </div>
+                        <div class="image-box full-width">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 1rem;">
+                                <h4 id="h4-s1-align" style="margin: 0;">피험자별 BVP 신호 및 라벨 정렬 검증 (처음 30,000 샘플)</h4>
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label for="select-s1-subject" style="font-size: 0.9rem; color: var(--text-muted); font-weight: 500;">피험자 선택:</label>
+                                    <select id="select-s1-subject" style="background-color: rgba(10, 11, 21, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.3rem 0.8rem; color: white; outline: none; font-family: var(--font-sans); cursor: pointer;">
+                                        <!-- Options populated dynamically -->
+                                    </select>
+                                </div>
+                            </div>
+                            <img src="" alt="Alignment Graph" id="img-s1-align" class="zoomable">
+                            <div class="graph-guide">
+                                <div class="guide-axis"><span>X축</span>: 시간 (초) / <span>Y축</span>: (위) BVP 신호 진폭 / (아래) 라벨 값 (0~3)</div>
+                                <div class="guide-interpretation">위 그래프의 회색 선은 BVP(맥박) 신호의 생체 패턴 변화이며 배경색은 해당 시점의 실험 상태를 의미합니다. 아래 꺾은선 그래프는 0~3까지의 라벨값 변화입니다. 두 서브플롯의 라벨 전환 시점이 수직으로 완벽하게 일치하면 BVP 생체 신호 데이터와 라벨 메타데이터가 정상 정렬되었음을 의미합니다.</div>
+                            </div>
+                            <div class="analysis-result-box" id="desc-s1-align" style="display: none;"></div>
+                        </div>
+                    </div>
+                    <div class="tab-content" id="logs-1">
+                        <pre class="console-logs" id="logs-content-1">로그 대기 중...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 2: PIPELINE DESIGN -->
+            <section class="step-card glass-panel active" id="card-step2">
+                <div class="step-card-header">
+                    <div class="step-number">Step 02</div>
+                    <h3 class="step-title">전처리 파이프라인 설계 (Pipeline Design)</h3>
+                    <div class="step-status" id="status-step2"><span class="badge badge-success" style="background: rgba(139, 92, 246, 0.15); color: var(--primary-light); border: 1px solid rgba(139, 92, 246, 0.3);">설정 대기</span></div>
+                </div>
+                <p class="step-desc">원시 PPG 신호를 가공하기 위해 필터링 및 윈도우 파라미터를 입력하거나, 단계 목록에서 원하는 생체 전처리 모듈을 조합하여 커스텀 분석 파이프라인을 직접 설계합니다.</p>
+
+                <!-- Preprocessing Harness Settings Grid inside Step 2 -->
+                <div class="harness-config" style="margin-top: 1.2rem; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 1.2rem; margin-bottom: 1.5rem; background: rgba(255, 255, 255, 0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.8rem;">
+                        <h4 style="font-size: 0.98rem; font-weight: 600; color: var(--primary-light); margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="fa-solid fa-sliders"></i> 전처리 하네스 파라미터 설정 (Harness Configuration)
+                        </h4>
+                        <div class="mode-switch-group" style="margin-bottom: 0;">
+                            <button id="btn-mode-standard" class="mode-switch-btn active" type="button">기본 설정 모드</button>
+                            <button id="btn-mode-custom" class="mode-switch-btn" type="button">커스텀 파이프라인 설계기</button>
+                        </div>
+                    </div>
+
+                    <!-- STANDARD HARNESS CONTAINER -->
+                    <div id="standard-harness-container">
+                        <!-- Standard Preprocessing Flow Description -->
+                        <div class="standard-pipeline-flow" style="margin-bottom: 1.5rem; background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 1rem;">
+                            <h5 style="font-size: 0.85rem; font-weight: 700; color: var(--primary-light); margin-top: 0; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+                                <i class="fa-solid fa-route" style="color: var(--primary-light);"></i> 기본 설정 전처리 파이프라인 흐름 (Standard Pipeline Flow)
+                            </h5>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; align-items: stretch;">
+                                
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.01</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">Raw 데이터 로드</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">WESAD PPG/BVP, ACC 및 라벨 데이터를 디스크에서 수집합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">pandas / pyPPG</div>
+                                </div>
+
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.02</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">Sampling Rate 확인</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">샘플 간 시간 간격의 일관성 및 정합성을 분석합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">pandas / SciPy</div>
+                                </div>
+
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.03</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">Resampling</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">원시 64Hz 신호를 타겟 주파수(128Hz)로 업샘플링합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">SciPy signal</div>
+                                </div>
+
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.04</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">Detrending</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">신호의 저주파 기저선 흔들림(움직임/호흡 노이즈)을 보정합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">SciPy / NeuroKit2</div>
+                                </div>
+
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.05</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">Band-pass Filter</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">대역통과 필터로 고주파/저주파 노이즈를 완전 차단합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">NeuroKit2 / SciPy</div>
+                                </div>
+
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.06</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">Smoothing</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">이동평균 등을 적용해 신호 표면의 미세 지글거림을 제거합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">SciPy / NeuroKit2</div>
+                                </div>
+
+                                <div class="standard-flow-step" style="background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.6rem; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <span style="font-size: 0.65rem; background: rgba(139, 92, 246, 0.15); color: var(--primary-light); padding: 0.1rem 0.3rem; border-radius: 3px; font-weight: 700;">ST.07</span>
+                                        <div style="font-size: 0.78rem; font-weight: 600; color: white; margin-top: 0.2rem;">정규화 및 슬라이싱</div>
+                                        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.3;">Z-score 정규화 적용 후 30초 윈도우 단위로 분할합니다.</div>
+                                    </div>
+                                    <div style="font-size: 0.62rem; color: var(--primary-light); background: rgba(139, 92, 246, 0.1); padding: 0.1rem 0.3rem; border-radius: 3px; width: fit-content; margin-top: 0.4rem; font-family: monospace;">NumPy / pandas</div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="harness-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1.2rem;">
+                            <div class="param-group tooltip-trigger">
+                                <label for="param-target-fs" style="display: block; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 500;">
+                                    타겟 주파수 (Hz) <i class="fa-solid fa-circle-question" style="color: var(--text-muted); font-size: 0.75rem; cursor: help; margin-left: 2px;"></i>
+                                </label>
+                                <input type="number" id="param-target-fs" value="128" min="32" max="256" step="1" style="width: 100%; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.4rem 0.7rem; color: white; outline: none; font-size: 0.88rem;">
+                                <div class="custom-tooltip">
+                                    <strong>타겟 주파수 (Target Fs)</strong><br>
+                                    원시 PPG 신호(64Hz)를 보간(Interpolation)하여 변환할 목표 샘플링 속도입니다. 주파수가 높을수록 신호의 시간적 해상도가 증가하여 세밀한 피크 분석이 가능합니다.
+                                </div>
+                            </div>
+                            <div class="param-group tooltip-trigger">
+                                <label for="param-filter-low" style="display: block; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 500;">
+                                    필터 저역차단 (Hz) <i class="fa-solid fa-circle-question" style="color: var(--text-muted); font-size: 0.75rem; cursor: help; margin-left: 2px;"></i>
+                                </label>
+                                <input type="number" id="param-filter-low" value="0.5" min="0.1" max="5.0" step="0.1" style="width: 100%; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.4rem 0.7rem; color: white; outline: none; font-size: 0.88rem;">
+                                <div class="custom-tooltip">
+                                    <strong>필터 저역차단 (Low Cutoff)</strong><br>
+                                    대역 통과 필터(Bandpass Filter)의 하한 주파수입니다. 호흡이나 신체 움직임으로 발생하는 기저선 흔들림(Baseline Drift) 잡음을 제거합니다. (보통 0.1~0.5Hz 적용)
+                                </div>
+                            </div>
+                            <div class="param-group tooltip-trigger">
+                                <label for="param-filter-high" style="display: block; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 500;">
+                                    필터 고역차단 (Hz) <i class="fa-solid fa-circle-question" style="color: var(--text-muted); font-size: 0.75rem; cursor: help; margin-left: 2px;"></i>
+                                </label>
+                                <input type="number" id="param-filter-high" value="8.0" min="2.0" max="30.0" step="0.1" style="width: 100%; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.4rem 0.7rem; color: white; outline: none; font-size: 0.88rem;">
+                                <div class="custom-tooltip">
+                                    <strong>필터 고역차단 (High Cutoff)</strong><br>
+                                    대역 통과 필터(Bandpass Filter)의 상한 주파수입니다. 전원 선 간섭(Power Line Noise)이나 근전도(EMG) 등 고주파 미세 잡음을 걸러냅니다. (보통 8~10Hz 적용)
+                                </div>
+                            </div>
+                            <div class="param-group tooltip-trigger">
+                                <label for="param-filter-order" style="display: block; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 500;">
+                                    필터 차수 (Order) <i class="fa-solid fa-circle-question" style="color: var(--text-muted); font-size: 0.75rem; cursor: help; margin-left: 2px;"></i>
+                                </label>
+                                <input type="number" id="param-filter-order" value="4" min="1" max="8" step="1" style="width: 100%; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.4rem 0.7rem; color: white; outline: none; font-size: 0.88rem;">
+                                <div class="custom-tooltip">
+                                    <strong>필터 차수 (Filter Order)</strong><br>
+                                    버터워스 필터의 감쇄 기울기(Steepness)를 결정합니다. 차수가 높을수록 노이즈를 날카롭게 차단하지만, 신호 위상 왜곡(Phase Distortion)이 생길 수 있습니다. (보통 4차 권장)
+                                </div>
+                            </div>
+                            <div class="param-group tooltip-trigger">
+                                <label for="param-window-size" style="display: block; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 500;">
+                                    윈도우 크기 (초) <i class="fa-solid fa-circle-question" style="color: var(--text-muted); font-size: 0.75rem; cursor: help; margin-left: 2px;"></i>
+                                </label>
+                                <input type="number" id="param-window-size" value="30" min="5" max="120" step="1" style="width: 100%; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.4rem 0.7rem; color: white; outline: none; font-size: 0.88rem;">
+                                <div class="custom-tooltip">
+                                    <strong>윈도우 크기 (Window Size)</strong><br>
+                                    지속적인 PPG 신호를 특징 추출용 조각(Segment)으로 자르는 단일 구간의 길이입니다. 적합한 시간 길이는 신뢰도 높은 자율신경계 반응 추출의 필수 기준이 됩니다. (WESAD 기준 30초)
+                                </div>
+                            </div>
+                            <div class="param-group tooltip-trigger">
+                                <label for="param-overlap-ratio" style="display: block; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.3rem; font-weight: 500;">
+                                    중첩 비율 (%) <i class="fa-solid fa-circle-question" style="color: var(--text-muted); font-size: 0.75rem; cursor: help; margin-left: 2px;"></i>
+                                </label>
+                                <input type="number" id="param-overlap-ratio" value="50" min="0" max="95" step="5" style="width: 100%; background-color: rgba(10, 11, 21, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.4rem 0.7rem; color: white; outline: none; font-size: 0.88rem;">
+                                <div class="custom-tooltip">
+                                    <strong>중첩 비율 (Overlap Ratio)</strong><br>
+                                    슬라이딩 윈도우를 적용할 때 직전 윈도우와 겹쳐서 진행하는 비율입니다. 중첩 비율이 높을수록(예: 50%) 데이터 수집 주기 조절 및 데이터셋 개수 증강(Augmentation) 효과를 냅니다.
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-save-harness" class="primary-btn batch-btn" style="width: 100%; justify-content: center; font-size: 0.98rem; padding: 0.75rem 1.8rem; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; font-weight: 700; border: none; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);"><i class="fa-solid fa-circle-arrow-right"></i> 설정 완료 및 전처리 실행 단계로 이동</button>
+                    </div>
+
+                    <!-- CUSTOM PIPELINE DESIGNER CONTAINER -->
+                    <div id="custom-designer-container" style="display: none; flex-direction: column; gap: 1rem;">
+                        <div class="designer-grid">
+                            <!-- Available Modules Panel -->
+                            <div style="background: rgba(10, 11, 21, 0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 1rem; display: flex; flex-direction: column;">
+                                <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.3rem;">
+                                    <i class="fa-solid fa-list-check" style="color: var(--primary-light);"></i> 사용 가능한 모듈 (Available Modules)
+                                </div>
+                                <div id="available-modules-list" style="overflow-y: auto; max-height: 420px; display: flex; flex-direction: column; gap: 0.6rem;">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+                            </div>
+
+                            <!-- Active Workflow Panel -->
+                            <div style="background: rgba(10, 11, 21, 0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 1rem; display: flex; flex-direction: column;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                                    <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem;">
+                                        <i class="fa-solid fa-route" style="color: var(--success);"></i> 설계된 파이프라인 (Active Workflow)
+                                    </div>
+                                    <div id="active-step-count" style="font-size: 0.72rem; background: rgba(16,185,129,0.1); color: var(--success); padding: 0.1rem 0.4rem; border-radius: 4px;">5 steps</div>
+                                </div>
+                                <div id="active-workflow-list" style="overflow-y: auto; max-height: 420px; display: flex; flex-direction: column; gap: 0.6rem;">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-save-custom-pipeline" class="primary-btn batch-btn" style="width: 100%; justify-content: center; font-size: 0.98rem; padding: 0.75rem 1.8rem; background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; font-weight: 700; border: none; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);"><i class="fa-solid fa-circle-arrow-right"></i> 설정 완료 및 전처리 실행 단계로 이동</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 3: PREPROCESSING RUN & RESULTS -->
+            <section class="step-card glass-panel" id="card-step3">
+                <div class="step-card-header">
+                    <div class="step-number">Step 03</div>
+                    <h3 class="step-title">신호 전처리 실행 및 결과 (Preprocessing Run)</h3>
+                    <div class="step-status" id="status-step3"><span class="badge badge-idle">대기 중</span></div>
+                </div>
+                <p class="step-desc">설계된 파이프라인 전처리 설정을 기반으로 WESAD 데이터셋에 일괄 적용하고, 각 피험자별 처리 결과 신호와 윈도우 슬라이싱 결과를 정밀하게 관측합니다.</p>
+
+                <!-- ACTIVE RUN PROFILE SUMMARY (Focused on Preprocessing) -->
+                <div class="glass-panel" id="active-profile-card" style="margin-top: 1rem; margin-bottom: 1.5rem; border-left: 5px solid var(--success); padding: 1.5rem; background: rgba(255, 255, 255, 0.015);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 0.8rem;">
+                        <h4 style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; margin: 0; color: var(--success);">
+                            <i class="fa-solid fa-square-poll-vertical"></i> 전처리 실행 프로세스 요약 (Preprocessing Run Profile)
+                        </h4>
+                        <span id="profile-version-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--success); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.3);">
+                            활성 실행 없음 (No Active Run)
+                        </span>
+                    </div>
+                    
+                    <!-- Preprocessing Pipeline Steps -->
+                    <div class="pipeline-flow-summary" style="margin-bottom: 1.5rem; background: rgba(255, 255, 255, 0.015); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 1rem;">
+                        <h5 style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-top: 0; margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="fa-solid fa-gears" style="color: var(--success);"></i> 전처리 파이프라인 단계별 진행 상태 (Preprocessing Stages)
+                        </h5>
+                        <div class="mini-progress-steps" style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; flex-wrap: wrap;">
+                            <div class="mini-step-box" id="mini-step-1" data-step-target="3" data-stage-target="stage-1" style="flex: 1; min-width: 140px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.6rem; transition: var(--transition);">
+                                <div class="mini-step-status-icon" id="mini-status-icon-1" style="font-size: 1.1rem; color: var(--text-muted);"><i class="fa-regular fa-circle"></i></div>
+                                <div>
+                                    <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500;">STAGE 01</div>
+                                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Raw 데이터 로드</div>
+                                    <div id="mini-step-desc-1" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem;">대기 중</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-step-arrow" style="color: rgba(255,255,255,0.15); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; width: 1rem;"><i class="fa-solid fa-chevron-right"></i></div>
+                            
+                            <div class="mini-step-box" id="mini-step-2" data-step-target="3" data-stage-target="stage-2" style="flex: 1; min-width: 140px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.6rem; transition: var(--transition);">
+                                <div class="mini-step-status-icon" id="mini-status-icon-2" style="font-size: 1.1rem; color: var(--text-muted);"><i class="fa-regular fa-circle"></i></div>
+                                <div>
+                                    <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500;">STAGE 02</div>
+                                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">128Hz 업샘플링</div>
+                                    <div id="mini-step-desc-2" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem;">대기 중</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-step-arrow" style="color: rgba(255,255,255,0.15); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; width: 1rem;"><i class="fa-solid fa-chevron-right"></i></div>
+                            
+                            <div class="mini-step-box" id="mini-step-3" data-step-target="3" data-stage-target="stage-3" style="flex: 1; min-width: 140px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.6rem; transition: var(--transition);">
+                                <div class="mini-step-status-icon" id="mini-status-icon-3" style="font-size: 1.1rem; color: var(--text-muted);"><i class="fa-regular fa-circle"></i></div>
+                                <div>
+                                    <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500;">STAGE 03</div>
+                                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">밴드패스 필터</div>
+                                    <div id="mini-step-desc-3" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem;">대기 중</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-step-arrow" style="color: rgba(255,255,255,0.15); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; width: 1rem;"><i class="fa-solid fa-chevron-right"></i></div>
+                            
+                            <div class="mini-step-box" id="mini-step-4" data-step-target="3" data-stage-target="stage-4" style="flex: 1; min-width: 140px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.6rem; transition: var(--transition);">
+                                <div class="mini-step-status-icon" id="mini-status-icon-4" style="font-size: 1.1rem; color: var(--text-muted);"><i class="fa-regular fa-circle"></i></div>
+                                <div>
+                                    <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500;">STAGE 04</div>
+                                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">Z-score 정규화</div>
+                                    <div id="mini-step-desc-4" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem;">대기 중</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mini-step-arrow" style="color: rgba(255,255,255,0.15); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; width: 1rem;"><i class="fa-solid fa-chevron-right"></i></div>
+                            
+                            <div class="mini-step-box" id="mini-step-5" data-step-target="3" data-stage-target="stage-5" style="flex: 1; min-width: 140px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 0.6rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.6rem; transition: var(--transition);">
+                                <div class="mini-step-status-icon" id="mini-status-icon-5" style="font-size: 1.1rem; color: var(--text-muted);"><i class="fa-regular fa-circle"></i></div>
+                                <div>
+                                    <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 500;">STAGE 05</div>
+                                    <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">30초 윈도우 슬라이싱</div>
+                                    <div id="mini-step-desc-5" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem;">대기 중</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="profile-stat-box" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.8rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;"><i class="fa-solid fa-folder-tree"></i> 연결된 데이터셋 경로</span>
+                            <strong id="profile-dataset-path" style="font-size: 0.88rem; color: white; word-break: break-all; font-weight: 600;">연결 대기 중...</strong>
+                        </div>
+                        
+                        <div class="profile-stat-box" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.8rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;"><i class="fa-solid fa-sliders"></i> 적용된 전처리 파라미터 (Harness)</span>
+                            <strong id="profile-harness-summary" style="font-size: 0.88rem; color: white; font-weight: 600;">설정 대기 중...</strong>
+                        </div>
+                        
+                        <div class="profile-stat-box" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.8rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;"><i class="fa-solid fa-database"></i> 세그먼트 데이터셋 통계</span>
+                            <strong id="profile-dataset-summary" style="font-size: 0.88rem; color: white; font-weight: 600;">데이터 없음 (No segments)</strong>
+                        </div>
+                        
+                        <div class="profile-stat-box" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.8rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;"><i class="fa-solid fa-trophy"></i> 머신러닝 최고 예측 성능</span>
+                            <strong id="profile-ml-summary" style="font-size: 0.88rem; color: var(--success); font-weight: 700;">학습 전 (Not trained)</strong>
+                        </div>
+                    </div>
+
+                    <div class="result-artifact-map">
+                        <div class="artifact-map-header">
+                            <div>
+                                <span class="artifact-map-kicker">Harness Artifact Layout</span>
+                                <h5><i class="fa-solid fa-diagram-project"></i> 실행 산출물 디렉토리 구조</h5>
+                            </div>
+                            <span id="artifact-run-badge" class="artifact-run-badge">run 대기 중</span>
+                        </div>
+                        <pre id="result-artifact-tree" class="artifact-tree">result/
+└── run 대기 중
+    ├── data/
+    ├── graphs/
+    └── summaries/</pre>
+                    </div>
+                </div>
+
+                <!-- Step 3 Preprocessing Execution Trigger Button -->
+                <div class="trigger-zone" id="trigger-zone-2" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+                    <button id="btn-run-preprocessing" class="primary-btn run-btn" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 0.9rem 2rem; background: linear-gradient(135deg, #10b981, #059669); color: #0a0b15; font-weight: 700; border: none; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);"><i class="fa-solid fa-play"></i> 설계된 설정으로 전처리 일괄 실행 (Run Batch Preprocessing)</button>
+                </div>
+
+                <div class="outputs-container" style="display: none;" id="outputs-3">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-tab="report-3"><i class="fa-solid fa-wave-square"></i> 전처리 결과</button>
+                        <button class="tab-btn" data-tab="logs-3"><i class="fa-solid fa-terminal"></i> 실행 로그</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="report-3">
+                        <div id="standard-report-3-container" style="width: 100%;">
+                            <!-- Preprocessing Stages Sub-Tabs Navigation -->
+                        <div class="stage-tabs-container">
+                            <button class="stage-tab-btn active" data-stage-tab="stage-1" data-step-target="3">
+                                <span class="stage-badge">01</span> Raw 데이터 로드
+                            </button>
+                            <button class="stage-tab-btn" data-stage-tab="stage-2" data-step-target="3">
+                                <span class="stage-badge">02</span> 128Hz 업샘플링
+                            </button>
+                            <button class="stage-tab-btn" data-stage-tab="stage-3" data-step-target="3">
+                                <span class="stage-badge">03</span> 밴드패스 필터
+                            </button>
+                            <button class="stage-tab-btn" data-stage-tab="stage-4" data-step-target="3">
+                                <span class="stage-badge">04</span> Z-score 정규화
+                            </button>
+                            <button class="stage-tab-btn" data-stage-tab="stage-5" data-step-target="3">
+                                <span class="stage-badge">05</span> 30초 슬라이싱
+                            </button>
+                        </div>
+
+                        <!-- STAGE 01: Raw 데이터 로드 -->
+                        <div class="stage-tab-content active" id="stage-content-1">
+                            <div class="analysis-result-box academic-definition-box" style="margin-top: 0; margin-bottom: 1.2rem; background: rgba(139, 92, 246, 0.05); border-left: 4px solid var(--primary-light); width: 100%; box-sizing: border-box;">
+                                📖 <strong>Raw 데이터 로드 정의 및 학술적 배경</strong>
+                                <p style="font-size:0.88rem; color:var(--text-primary); margin-top:0.4rem; line-height:1.45; margin-bottom: 0;">
+                                    원시 PPG/BVP 데이터 및 라벨, Accelerometer(ACC) 신호를 WESAD 데이터셋 파일 시스템으로부터 로드합니다. 분석 파이프라인 가동에 필요한 가공되지 않은 기저 시계열 입력 데이터를 구축하는 기초적 첫 단계입니다.
+                                </p>
+                            </div>
+                            <div class="stage-split">
+                                <div class="stage-info-panel">
+                                    <div class="stats-table-wrapper" style="width: 100%;">
+                                        <h4>피험자 원시 데이터 정보</h4>
+                                        <table class="stage-stats-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td>피험자 ID</td>
+                                                    <td><span class="detail-subject-name">S2</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>신호 유형 (Signal Type)</td>
+                                                    <td>Wrist BVP (Wrist PPG)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>샘플링 속도 (Sample Rate)</td>
+                                                    <td>64 Hz</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>원시 BVP 샘플 수</td>
+                                                    <td><span id="detail-raw-samples">-</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>총 신호 기록 시간</td>
+                                                    <td><span id="detail-raw-duration">-</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>로드 상태</td>
+                                                    <td><span class="badge badge-success" style="padding: 0.1rem 0.5rem; font-size: 0.72rem; border-radius: 4px;">정상 로드됨</span></td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="analysis-result-box" id="desc-s2-step-1">
+                                        ✨ <strong>[피험자 <span class="detail-subject-name">S2</span>] 원시 PPG 데이터 로드 완료</strong>
+                                        <ul>
+                                            <li><strong>WESAD 원시 데이터 매핑:</strong> 피험자의 pkl 파일에서 손목 PPG 센서 신호인 BVP(Blood Volume Pulse)를 성공적으로 로드했습니다.</li>
+                                            <li><strong>기저 상태 및 스트레스 상태 기록 시간:</strong> 고해상도 PPG 신호 기록(기저 상태 19.1분, 스트레스 유도 상태 10.3분)이 원시 데이터에 포함되어 있습니다.</li>
+                                            <li><strong>입력 형태:</strong> 1차원 시계열 데이터 형태(64Hz 샘플링 속도)로 딥러닝 전처리의 입력으로 제공됩니다.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="stage-plot-panel">
+                                    <div class="image-box" style="margin-bottom: 0;">
+                                        <h4>BVP 단계별 파형 (① Raw BVP 신호 시각화)</h4>
+                                        <img src="" alt="Raw BVP Waveform" id="img-s2-step-1" class="zoomable">
+                                        <div class="graph-guide">
+                                            <div class="guide-axis"><span>X축</span>: 시간 (초) / <span>Y축</span>: 신호 진폭</div>
+                                            <div class="guide-interpretation">WESAD 데이터셋 내 피험자의 64Hz 원시 PPG 신호(BVP)의 5초 구간 원시 파형(최상단 ①번 그래프)을 보여줍니다. 호흡 및 몸 움직임 등으로 인해 기저선이 심하게 흔들리고 잡음이 섞여 있는 상태입니다.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STAGE 02: 128Hz 업샘플링 -->
+                        <div class="stage-tab-content" id="stage-content-2">
+                            <div class="analysis-result-box academic-definition-box" style="margin-top: 0; margin-bottom: 1.2rem; background: rgba(139, 92, 246, 0.05); border-left: 4px solid var(--primary-light); width: 100%; box-sizing: border-box;">
+                                📖 <strong>128Hz 업샘플링 정의 및 학술적 배경</strong>
+                                <p style="font-size:0.88rem; color:var(--text-primary); margin-top:0.4rem; line-height:1.45; margin-bottom: 0;">
+                                    서로 다른 주파수로 측정된 생체 신호들을 동일 주파수로 정렬하거나 피크 추출 정밀도를 높이기 위해 보간(Interpolation) 처리를 수행하는 리샘플링 단계입니다.
+                                </p>
+                            </div>
+                            <div class="stage-split">
+                                <div class="stage-info-panel">
+                                    <div class="stats-table-wrapper" style="width: 100%;">
+                                        <h4>샘플링 속도 변환 정보</h4>
+                                        <table class="stage-stats-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td>피험자 ID</td>
+                                                    <td><span class="detail-subject-name">S2</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>기존 주파수 (Original Fs)</td>
+                                                    <td>64 Hz</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>타겟 주파수 (Target Fs)</td>
+                                                    <td><span id="detail-resampled-fs">128</span> Hz</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>업샘플링 배율 (Ratio)</td>
+                                                    <td><span id="detail-resampled-factor">2</span> 배</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>변환 후 샘플 수</td>
+                                                    <td><span id="detail-resampled-samples">-</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>보간 알고리즘</td>
+                                                    <td>Resample Poly (다항식 필터 보간)</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="analysis-result-box" id="desc-s2-step-2">
+                                        ✨ <strong>[피험자 <span class="detail-subject-name">S2</span>] 128Hz 업샘플링 검증서</strong>
+                                        <ul>
+                                            <li><strong>샘플링 속도 보간:</strong> 기존 64Hz로 수집된 PPG 신호를 다항식 보간(Resample Poly)을 통해 설정된 타겟 주파수(기본 128Hz)로 변환하였습니다.</li>
+                                            <li><strong>시간 분해능 개선:</strong> 샘플 주기가 15.625ms에서 7.8125ms로 2배 단축되어, 심장 박동 수축기 피크(Systolic Peak) 검출의 정밀도를 획기적으로 향상시켰습니다.</li>
+                                            <li><strong>앨리어싱 및 잡음 차단:</strong> 보간 과정에서 저역통과 필터가 자동으로 내장 적용되어 고주파 왜곡 성분을 차단합니다.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="stage-plot-panel">
+                                    <div class="image-box" style="margin-bottom: 0;">
+                                        <h4>BVP 단계별 파형 (② 업샘플링 신호 시각화)</h4>
+                                        <img src="" alt="Resampled BVP Waveform" id="img-s2-step-2" class="zoomable">
+                                        <div class="graph-guide">
+                                            <div class="guide-axis"><span>X축</span>: 시간 (초) / <span>Y축</span>: 신호 진폭</div>
+                                            <div class="guide-interpretation">다항식 보간 처리를 적용한 128Hz 업샘플링 파형(②번 그래프)입니다. 신호의 샘플 주기가 촘촘해짐에 따라 시계열 패턴이 부드러워져 정밀한 피크 탐지가 가능하게 됩니다.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STAGE 03: 밴드패스 필터 -->
+                        <div class="stage-tab-content" id="stage-content-3">
+                            <div class="analysis-result-box academic-definition-box" style="margin-top: 0; margin-bottom: 1.2rem; background: rgba(139, 92, 246, 0.05); border-left: 4px solid var(--primary-light); width: 100%; box-sizing: border-box;">
+                                📖 <strong>밴드패스 필터 정의 및 학술적 배경</strong>
+                                <p style="font-size:0.88rem; color:var(--text-primary); margin-top:0.4rem; line-height:1.45; margin-bottom: 0;">
+                                    대역 통과 필터(Bandpass Filter)는 특정 주파수 범위(예: 0.5~8Hz)의 신호만을 통과시켜 맥파 신호에 섞인 저주파 호흡 노이즈 및 고주파 전원/근전도 잡음을 동시에 제거하는 핵심 정제 과정입니다.
+                                </p>
+                            </div>
+                            <div class="stage-split" style="flex-direction: column; gap: 1.5rem;">
+                                <div class="stage-split" style="gap: 1.5rem;">
+                                    <div class="stage-info-panel" style="flex: 1; min-width: 320px;">
+                                        <div class="stats-table-wrapper" style="width: 100%;">
+                                            <h4>대역통과 필터 및 피크 검출 정보</h4>
+                                            <table class="stage-stats-table">
+                                                <tbody>
+                                                    <tr>
+                                                        <td>피험자 ID</td>
+                                                        <td><span class="detail-subject-name">S2</span></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>필터 종류 (Filter Type)</td>
+                                                        <td>Butterworth Bandpass</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>필터 차수 (Filter Order)</td>
+                                                        <td><span id="detail-filter-order">4</span> 차</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>대역 통과 범위 (Passband)</td>
+                                                        <td><span id="detail-filter-range">0.5 - 8.0</span> Hz</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>5초당 검출 피크 (Peaks)</td>
+                                                        <td><span id="detail-detected-peaks">-</span> 개</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>피크 탐색 알고리즘</td>
+                                                        <td>Adaptive Threshold Peak Detection</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="stage-info-panel" style="flex: 1.2; min-width: 380px; justify-content: center;">
+                                        <div class="analysis-result-box" id="desc-s2-freq" style="margin-top: 0;">
+                                            ⚡ <strong>[피험자 <span class="detail-subject-name">S2</span>] 주파수 영역 파워 스펙트럼(PSD) 정밀 검정서</strong>
+                                            <ul>
+                                                <li><strong>스펙트럼 에너지 분포 변화:</strong> 필터링 이전(회색 영역)에 광범위하게 산재해 있던 극저주파(0.5Hz 이하) 노이즈 에너지와 초고주파 잡음이 필터링 이후(적색 영역) 대부분 제거되었습니다.</li>
+                                                <li><strong>심박수 대역 집중도:</strong> 주파수 성분이 인체의 정상 심박 영역인 0.8Hz ~ 2.5Hz 구간에 강하게 밀집되어 있어, PPG 신호의 생리학적 유효성이 확인되었습니다.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="report-images grid-2" style="width: 100%; gap: 1.5rem;">
+                                    <div class="image-box" style="margin-bottom: 0;">
+                                        <h4>필터 전후 주파수 스펙트럼 (PSD)</h4>
+                                        <img src="" alt="PSD" id="img-s2-freq" class="zoomable">
+                                        <div class="graph-guide">
+                                            <div class="guide-axis"><span>X축</span>: 주파수 (Hz) / <span>Y축</span>: 파워 스펙트럼 밀도 (로그 스케일)</div>
+                                            <div class="guide-interpretation">필터 적용 전(회색)과 적용 후(빨간색)의 주파수 성분을 대조합니다. 기저선 흔들림을 유발하는 초저주파 성분 및 고주파 잡음 대역이 깔끔하게 차단된 양상이 확인됩니다.</div>
+                                        </div>
+                                    </div>
+                                    <div class="image-box" style="margin-bottom: 0;">
+                                        <h4>심장 박동 피크(Peak) 검출</h4>
+                                        <img src="" alt="Peaks" id="img-s2-peaks" class="zoomable">
+                                        <div class="graph-guide">
+                                            <div class="guide-axis"><span>X축</span>: 시간 (초) / <span>Y축</span>: 필터링된 BVP 신호 진폭</div>
+                                            <div class="guide-interpretation">PPG 신호의 수축기 피크(심장 수축 지점)를 빨간 점으로 탐색해 낸 결과입니다. 각 피크 간의 거리(Inter-Beat Interval)가 올바르게 매핑되어 생체 신호가 누락 없이 깔끔하게 추출되었는지 모니터링합니다.</div>
+                                        </div>
+                                        <div class="analysis-result-box" id="desc-s2-peaks" style="display: none; margin-top: 1rem;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STAGE 04: Z-score 정규화 -->
+                        <div class="stage-tab-content" id="stage-content-4">
+                            <div class="analysis-result-box academic-definition-box" style="margin-top: 0; margin-bottom: 1.2rem; background: rgba(139, 92, 246, 0.05); border-left: 4px solid var(--primary-light); width: 100%; box-sizing: border-box;">
+                                📖 <strong>Z-score 정규화 정의 및 학술적 배경</strong>
+                                <p style="font-size:0.88rem; color:var(--text-primary); margin-top:0.4rem; line-height:1.45; margin-bottom: 0;">
+                                    진폭 정규화(Normalization)는 Z-score 스케일링을 적용하여 개인별 센서 착용 밀착도나 혈관 특징에 따라 달라지는 신호 절대 진폭의 편차를 표준화합니다.
+                                </p>
+                            </div>
+                            <div class="stage-split">
+                                <div class="stage-info-panel">
+                                    <div class="stats-table-wrapper" style="width: 100%;">
+                                        <h4>정규화 스케일링 정보</h4>
+                                        <table class="stage-stats-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td>피험자 ID</td>
+                                                    <td><span class="detail-subject-name">S2</span></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>정규화 방법 (Scaling Method)</td>
+                                                    <td>Z-score Normalization (Standardization)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>스케일 식 (Equation)</td>
+                                                    <td>\(z = \frac{x - \mu}{\sigma}\)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>목표 평균 (Target Mean)</td>
+                                                    <td>0.0 (Zero Mean)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>목표 표준편차 (Target Std)</td>
+                                                    <td>1.0 (Unit Variance)</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>적용 단위 (Window base)</td>
+                                                    <td>30초 슬라이딩 윈도우별 개별 표준화</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="analysis-result-box" id="desc-s2-zscore">
+                                        ⚖️ <strong>[피험자 <span class="detail-subject-name">S2</span>] Z-score 정규화 분석서</strong>
+                                        <ul>
+                                            <li><strong>개인별 편차 소거 진단:</strong> 피험자 간 피부 두께, 센서 착용 밀착도에 따른 PPG 진폭 절댓값의 개별 편차가 완전히 소거되었습니다.</li>
+                                            <li><strong>동적 변동성 보존 검정:</strong> 진폭의 절댓값은 표준화되면서도 스트레스 시 교감신경계 활성화로 유발되는 미세 파형 변동 및 심박수 변화 등의 고유 패턴 정보는 온전히 보존되어 일반화 성능을 보장합니다.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="stage-plot-panel">
+                                    <div class="image-box" style="margin-bottom: 0;">
+                                        <h4>Z-score 정규화 스케일 비교</h4>
+                                        <img src="" alt="Z-score" id="img-s2-zscore" class="zoomable">
+                                        <div class="graph-guide">
+                                            <div class="guide-axis"><span>X축</span>: 시간 (초) / <span>Y축</span>: 필터링 신호 및 정규화 신호의 스케일</div>
+                                            <div class="guide-interpretation">표준화 전(파란색)과 표준화 후(빨간색) 신호의 진폭 스케일을 비교합니다. Z-score 정규화를 통해 신호가 일정한 진폭 스케일 영역(대략 -3에서 +3 범위)으로 변환되었습니다.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STAGE 05: 30초 슬라이싱 -->
+                        <div class="stage-tab-content" id="stage-content-5">
+                            <div class="analysis-result-box academic-definition-box" style="margin-top: 0; margin-bottom: 1.2rem; background: rgba(139, 92, 246, 0.05); border-left: 4px solid var(--primary-light); width: 100%; box-sizing: border-box;">
+                                📖 <strong>30초 슬라이싱 정의 및 학술적 배경</strong>
+                                <p style="font-size:0.88rem; color:var(--text-primary); margin-top:0.4rem; line-height:1.45; margin-bottom: 0;">
+                                    윈도우 분할 및 테이블화(Sliding Window Slicing)는 긴 생체 신호를 정해진 크기(예: 30초)의 윈도우로 분할하여 특징 벡터와 타겟 라벨을 매핑하고 머신러닝/딥러닝을 위한 최종 데이터셋 테이블을 생성합니다.
+                                </p>
+                            </div>
+                            <div class="stage-split" style="flex-direction: column; gap: 1.5rem;">
+                                <div class="stage-split" style="gap: 1.5rem;">
+                                    <div class="stage-info-panel" style="flex: 1; min-width: 320px;">
+                                        <div class="stats-table-wrapper" style="width: 100%;">
+                                            <h4>세그먼트 데이터 생성 통계</h4>
+                                            <table class="stage-stats-table">
+                                                <tbody>
+                                                    <tr>
+                                                        <td>선택 피험자 ID</td>
+                                                        <td><span class="detail-subject-name">S2</span></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>윈도우 크기 (Window Size)</td>
+                                                        <td><span id="detail-window-size">30</span> 초</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>중첩 비율 (Overlap Ratio)</td>
+                                                        <td><span id="detail-overlap-ratio">50</span> %</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>생성된 총 세그먼트</td>
+                                                        <td><span id="detail-total-segments">-</span> 개</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>스트레스 세그먼트 (Stress)</td>
+                                                        <td><span id="detail-stress-segments" style="color: var(--danger-light); font-weight:700;">-</span> 개</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>비스트레스 세그먼트 (Non-Stress)</td>
+                                                        <td><span id="detail-non-stress-segments" style="color: var(--success); font-weight:700;">-</span> 개</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="stage-info-panel" style="flex: 1.2; min-width: 380px; justify-content: center;">
+                                        <div class="analysis-result-box" id="desc-stage-5" style="margin-top: 0;">
+                                            🎯 <strong>[피험자 <span class="detail-subject-name">S2</span>] 30초 슬라이딩 윈도우 분석서</strong>
+                                            <ul>
+                                                <li><strong>윈도우 단위 분할:</strong> 정제 완료된 연속 신호를 30초 크기의 슬라이딩 윈도우로 분할하여 AI 모델이 학습할 수 있는 독립적 시간 단위로 분해했습니다.</li>
+                                                <li><strong>50% 중첩 효과:</strong> 15초 오버랩(중첩)을 가해 데이터 포인트 샘플링 주기를 세밀하게 조율하는 동시에, 데이터셋을 2배 가량 증강(Augmentation) 효과를 냈습니다.</li>
+                                                <li><strong>상태 천이 구간 필터링:</strong> 상태가 중간에 섞인 노이즈 구간을 걸러내고 순수한 스트레스 및 기저 상태만 분류 라벨로 축적했습니다.</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stage-split" style="gap: 1.5rem;">
+                                    <div class="stats-table-wrapper" style="flex: 1.3; min-width: 450px;">
+                                        <h4>일괄 전처리 데이터셋 요약 (전체 피험자 목록)</h4>
+                                        <div style="overflow-x: auto;">
+                                            <table class="stats-table" id="table-batch">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="color: var(--primary-light);">피험자</th>
+                                                        <th>총 BVP 샘플</th>
+                                                        <th>총 시간</th>
+                                                        <th style="color: var(--success);">세그먼트 수</th>
+                                                        <th style="color: var(--danger-light);">스트레스</th>
+                                                        <th>비스트레스</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="table-batch-body">
+                                                    <!-- Dynamic batch rows will be inserted here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <p style="font-size: 0.76rem; color: var(--text-muted); margin-top: 0.6rem; line-height: 1.4;">
+                                            * 피험자 열(S2, S3...)의 이름을 클릭하면 해당 피험자의 세부 신호 파형 및 01~05단계별 전처리 결과를 동적으로 탐색할 수 있습니다.
+                                        </p>
+                                    </div>
+                                    <div class="report-images" style="flex: 1; min-width: 350px;">
+                                        <div class="image-box" style="margin-bottom: 0;">
+                                            <h4>피험자별 세그먼트 분포 비교</h4>
+                                            <img src="" alt="Batch Segment Distribution Comparison" id="img-s2-batch-comp" class="zoomable">
+                                            <div class="graph-guide">
+                                                <div class="guide-axis"><span>X축</span>: 피험자 ID / <span>Y축</span>: 유효 30초 세그먼트 수</div>
+                                                <div class="guide-interpretation">30초 슬라이딩 윈도우 분할 결과 생성된 클래스별 세그먼트 개수를 비교합니다. 피험자 간의 신호 수집 유효 기록 시간에 따른 기여 균형도를 진단합니다.</div>
+                                            </div>
+                                            <div class="analysis-result-box" id="desc-s2-batch-comp" style="display: none; margin-top: 1rem;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        <div id="custom-report-3-container" style="display: none; width: 100%;"></div>
+                    </div>
+                    <div class="tab-content" id="logs-3">
+                        <pre class="console-logs" id="logs-content-3">로그 대기 중...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 4: EMBEDDING -->
+            <section class="step-card glass-panel" id="card-step4">
+                <div class="step-card-header">
+                    <div class="step-number">Step 04</div>
+                    <h3 class="step-title">Pulse-PPG 임베딩 특징 추출</h3>
+                    <div class="step-status" id="status-step4"><span class="badge badge-idle">대기 중</span></div>
+                </div>
+                <p class="step-desc">사전 학습된 1D-ResNet 기반 Pulse-PPG 인코더를 실행하여, 누적된 30초 세그먼트 데이터로부터 고차원 스트레스 특징 정보(512차원)를 추출합니다.</p>
+
+                <div class="trigger-zone" id="trigger-zone-4">
+                    <button class="primary-btn run-btn" id="btn-run-step4"><i class="fa-solid fa-bolt"></i> 임베딩 추출 실행</button>
+                    <p class="sub-desc">이 단계는 PyTorch 딥러닝 모델 가중치를 로드하고 GPU(MPS)/CPU 연산을 수행하므로 수 초 ~ 수십 초가 소요될 수 있습니다.</p>
+                </div>
+
+                <div class="outputs-container" style="display: none;" id="outputs-4">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-tab="report-4"><i class="fa-solid fa-compress"></i> 추출 결과</button>
+                        <button class="tab-btn" data-tab="logs-4"><i class="fa-solid fa-terminal"></i> 실행 로그</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="report-4">
+                        <div class="stats-table-wrapper" style="max-width: 600px; margin: 0 auto;">
+                            <h4>임베딩 정보 요약</h4>
+                            <table class="stats-table" id="table-s3">
+                                <tbody>
+                                    <tr><th>입력 세그먼트 개수</th><td id="td-s3-segs">-</td></tr>
+                                    <tr><th>출력 임베딩 행렬 Shape</th><td id="td-s3-shape">-</td></tr>
+                                    <tr><th>연산 가속 장치 (Device)</th><td id="td-s3-device">-</td></tr>
+                                    <tr><th>소요 시간</th><td id="td-s3-time">-</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tab-content" id="logs-4">
+                        <pre class="console-logs" id="logs-content-4">로그 대기 중...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 5: CLASSIFICATION -->
+            <section class="step-card glass-panel" id="card-step5">
+                <div class="step-card-header">
+                    <div class="step-number">Step 05</div>
+                    <h3 class="step-title">XGBoost 머신러닝 분류 & 검증</h3>
+                    <div class="step-status" id="status-step5"><span class="badge badge-idle">대기 중</span></div>
+                </div>
+                <p class="step-desc">추출된 고차원 특징값들을 학습 데이터로 삼아 XGBoost 분류기를 훈련합니다. 단일 피험자인 경우 5-Fold 교차검증을 수행하고, 다중 피험자인 경우 Leave-One-Subject-Out(LOSO) 교차검증을 수행하여 최종 예측 정확도(Accuracy), F1-Score, AUROC를 산출합니다.</p>
+
+                <div class="trigger-zone" id="trigger-zone-5">
+                    <button class="primary-btn run-btn" id="btn-run-step5"><i class="fa-solid fa-chart-line"></i> 분류기 학습 및 검증 시작</button>
+                </div>
+
+                <div class="outputs-container" style="display: none;" id="outputs-5">
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-tab="report-5"><i class="fa-solid fa-square-poll-vertical"></i> 성능 검증 결과</button>
+                        <button class="tab-btn" data-tab="logs-5"><i class="fa-solid fa-terminal"></i> 실행 로그</button>
+                    </div>
+                    
+                    <div class="tab-content active" id="report-5">
+                        <div class="report-split">
+                            <div class="stats-table-wrapper">
+                                <h4 id="h4-s4-title">교차 검증 평균 성능</h4>
+                                <table class="stats-table" id="table-s4">
+                                    <tbody>
+                                        <tr><th>평가 방식</th><td id="td-s4-method">-</td></tr>
+                                        <tr><th>평균 AUROC</th><td id="td-s4-auroc" class="metric-val">-</td></tr>
+                                        <tr><th>평균 F1-Score</th><td id="td-s4-f1" class="metric-val">-</td></tr>
+                                        <tr><th>평균 Accuracy</th><td id="td-s4-acc" class="metric-val">-</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="report-images">
+                                <div class="image-box">
+                                    <h4>검증 성능 플롯</h4>
+                                    <img src="" alt="Classification Results" id="img-s4-plot" class="zoomable">
+                                    <div class="graph-guide">
+                                        <div class="guide-axis"><span>X축</span>: 평가 대상 (피험자 ID S2~S17 또는 Stratified Fold) / <span>Y축</span>: 성능 지표 점수 (0.0~1.0)</div>
+                                        <div class="guide-interpretation">모델의 강인함과 보편적 성능을 세 가지 주요 지표(AUROC, F1-Score, Accuracy)로 평가합니다. 가로 점선은 전체 평가 대상의 평균치입니다. 특정 피험자에서 지표가 유독 낮다면, 개인별 신호 특성 차이나 노이즈 강도가 모델 일반화 예측 성능에 미친 영향을 해석하는 단서가 됩니다.</div>
+                                    </div>
+                                    <div class="analysis-result-box" id="desc-s4" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-content" id="logs-5">
+                        <pre class="console-logs" id="logs-content-5">로그 대기 중...</pre>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- IMAGE LIGHTBOX / MODAL FOR ZOOM -->
+    <div id="image-modal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modal-img">
+        <div id="caption"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
